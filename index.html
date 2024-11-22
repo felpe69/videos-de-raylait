@@ -1,0 +1,215 @@
+<!doctype html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script type="text/javascript">
+  var spData = null;
+  var columnTitle = [];
+  var URL_COL_NUMBER = 11; // Column L
+  var EMAIL_COL_NUMBER = 8; // Col I
+  var YOU_TUBE_URL_1 = "//www.youtube.com/watch?v=";
+  var YOU_TUBE_URL_2 = "//youtu.be/";
+  var YOU_TUBE_EMBED_URL = "//www.youtube.com/embed/";
+  
+  function doData(json) {
+      spData = json.feed.entry;
+  }
+  
+    function drawListItem(ul, val, columnTitle) {
+		if (val == " ") {
+			return "";
+		}
+		else {
+			var li = $("<li/>");
+			li.append("<b>"+columnTitle+":</b> ");
+			li.append(val);
+			ul.append(li);
+			return li;
+	  }
+	}
+
+	function setUpColumnTitles(rowData) {
+		for(var c=0; c<rowData.length; c++) {
+		  columnTitle.push(rowData[c]);
+	  }
+	}
+	
+    function drawVideoItem(divvy, rowData) {
+	  if (rowData == null) return null;
+	  if (rowData.length == 0) return null;
+	  var vidDiv = $("<div  class=\"video-item\"/>");
+	  divvy.append(vidDiv);
+	  
+	  // if the URL is to you tube then put the iframe first, otherwise dont
+	  var hasEmbeddedPlayer = false;
+	  var embedURL;
+	  if (rowData[URL_COL_NUMBER].includes(YOU_TUBE_URL_1)) { // change watch to embed
+		hasEmbeddedPlayer = true;
+		
+		embedURL = rowData[URL_COL_NUMBER].replace(YOU_TUBE_URL_1,YOU_TUBE_EMBED_URL);
+		
+	  }
+	  else 	{
+		if (rowData[URL_COL_NUMBER].includes(YOU_TUBE_URL_2)) { // change youtu.be/XXXXX yo www.youtube.com/embed/
+			hasEmbeddedPlayer = true;
+			
+			embedURL = rowData[URL_COL_NUMBER].replace(YOU_TUBE_URL_2,YOU_TUBE_EMBED_URL);
+			
+		}
+	  }
+	  
+	  var vidWidth = "560";
+	  var vidHeight = "315";
+	  
+	  if (hasEmbeddedPlayer) {
+	  // make https
+
+		embedURL = embedURL.replace("http:","https:");
+		var playerDiv = $("<div  class=\"player\"/>");
+		var player = "<iframe width=\""+vidWidth+"\" height=\""+vidHeight+"\" src=\""+embedURL+"\" frameborder=\"0\" allowfullscreen></iframe>";		
+		playerDiv.append(player);
+		vidDiv.append(playerDiv);
+	  }
+	  else { // add placeholder image
+	     vidDiv.append("<img alt=\"*\" width=\""+vidWidth+"\" height=\""+vidHeight+"\" src=\"https://placehold.it/300x250&amp;text=No preview available\" />");
+
+	  }
+	  
+	  var ul = $("<ul  class=\"info\"/>");
+	  vidDiv.append(ul);
+	  
+	  // skip first column, so start at 1
+	  for(var c=1; c<rowData.length; c++) {
+		if (c == URL_COL_NUMBER) {
+			var hyperlink = "<a href=\""+rowData[c]+"\">"+rowData[c]+"</a>";
+			drawListItem(ul, hyperlink, columnTitle[c]);
+		   
+		}
+		else {
+		  if (c == EMAIL_COL_NUMBER) { // dont output email 
+		  
+		  }
+		  else {
+			drawListItem(ul, rowData[c], columnTitle[c]);
+		  }
+		}
+	  }
+	  return vidDiv;
+  }
+   
+    function drawDiv(parent) {
+	  var divvy = $("<div class=\"grid\"/>");
+	  parent.append(divvy);
+	  return divvy;
+  }
+  
+  function readData(parent) {
+      var data = spData;
+     
+	  var divvy = drawDiv(parent);
+      var rowData = [];
+      var nextCol=parseInt(1);
+	  var totalColumns = 0;
+			  
+      for(var r=0; r<data.length; r++) {
+          var cell = data[r]["gs$cell"];
+          var val = cell["$t"];
+		  var column = parseInt(cell.col);
+		  var row = parseInt(cell.row);
+
+		  if (row == 1) {
+		    totalColumns++;
+		  }
+		  
+          if (column == 1) { // so we're starting a new row
+		  
+		    // were any of the last row's columns empty (dont check on row 1)
+			if (row == 1) {
+			}
+			else{
+		
+				var numSkips = totalColumns-nextCol+1;
+				for (var c=0; c<numSkips; c++) {
+					rowData.push(" ");
+				}
+			}
+			
+			// if we're on row 2 then stash the row 1 headings as "attribute titles" else write out the previous
+			if (row == 2) {
+				setUpColumnTitles(rowData);
+			}
+			else {
+				drawVideoItem(divvy, rowData);
+			}
+            rowData = [];
+			nextCol = 2;
+          }
+		  else {
+			var numSkips = column-nextCol;
+
+			// has there  been any blank cells?
+			for (var c=0; c<numSkips; c++) {
+				rowData.push(" ");
+			}
+			nextCol = parseInt(column)+1;
+		  }
+		  // filter HTML tags
+		  val = val.replace(/>/g,"&gt;");
+		  val = val.replace(/</g,"&lt;");
+		  
+		  rowData.push(val);
+		}
+      drawVideoItem(divvy, rowData);
+  }
+  $(document).ready(function(){
+      readData($("#data"));
+  });
+// ********************************************************************************************************************
+// To find the spreadsheet key and grid ID:             
+// - Publish your spreadsheet (File > Publish to the web)       
+// - the big long string after ....spreadsheets/d/ and before /edit#.... is the spreadsheetKey; 
+// - enter this URL
+// -        https://spreadsheets.google.com/feeds/worksheets/[SPREADSHEET-KEY]/private/full
+// - and the grid ID is  long number after "gid=" NB, it is suggested thatthe value 0 or 1 may also work
+// 
+// ********************************************************************************************************************
+  </script>   
+  <!--script src="https://spreadsheets.google.com/feeds/cells/17Hii1EOUmeHnJt1gW3uXBiiamG1m4VDJ-60TFuNQ0Wo/1/public/values?alt=json-in-script&callback=doData"></-->
+<script src="https://spreadsheets.google.com/feeds/cells/1FyQH6LKOVDknYmebaBD2R3MCoA6PtaySgBuFaFlFjjM/1/public/values?alt=json-in-script&callback=doData"></script>
+<style type="text/css">
+  div .grid {  }
+  div .video-item { float: left; text-align: left; width: 600px; height:36em; overflow: auto; margin: 1em 1em 1em 1em;}
+  div .player { }
+  ul.info { list-style-type: none;  margin: 1em 1em 1em 1em; padding: 0px 0px 0px 0px;}
+  body {font-family: "Noto Sans","Helvetica Neue",Arial,sans-serif;}
+  
+  /* Logo stuff copied from apereo website */
+  a.logo img { height: 75px; }
+  img {
+    max-width: 100%;
+  }
+  img {
+    vertical-align: middle;
+  }
+  img {
+    border: 0;
+  }
+</style>
+<style type="text/css" media="print">
+  form {display: none;}
+</style>
+<title>Sakai Video Help Gallery</title>
+<link rel="shortcut icon" href="https://jira.sakaiproject.org/s/en_US-pgjyfn/70120/43a325574c266b318e7d209af599589a/_/favicon.ico">
+</head>
+<body>
+    <div class="navbar-header">
+              <a class="logo navbar-btn pull-left" href="/" title="Home">
+          <img src="https://www.sakaiproject.org/sites/all/themes/sakai/logo.png" alt="Home" />
+        </a>
+<h1 class="page-header">Sakai Video Help Gallery</h1>
+<div id="page-introduction"><p>Repository of help videos on many Sakai related topics. <a target="_blank" href="https://sakaiproject.org/sakai-video-help-repository">Upload details of your video(s)</a>.</p>
+</div>
+
+<div id="data"/>
+</body>
+</html> 
